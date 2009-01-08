@@ -320,9 +320,14 @@ describe 'As described in README,' do
         create_table 'items', :force => true do |t|
           t.string 'workflow_state'
         end
+        create_table 'users', :force => true do |t|
+          t.string 'username'
+        end
       end
       if not defined?(Item)
-        class Item < ActiveRecord::Base; include Workflow; end 
+        require "#{File.dirname(__FILE__)}/../init"
+        class Item < ActiveRecord::Base; end 
+        class User < ActiveRecord::Base; end
       end
       Item.class_eval do
         workflow do

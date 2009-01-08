@@ -42,40 +42,44 @@ module Workflow
     # utility sub-classes, with an ActiveRecordIntegrator and a
     # ClassIntegrator... that both respond to integrate! :)
     def append_features(receiver)
-      # add a meta method
-      receiver.instance_eval do
-        def workflow(&specification)
-          Workflow.specify(self, &specification)
-        end
-      end
       # this should check the inheritance tree, as subclassed models
       # won't return ActiveRecord::Base, they'll return something else
       # despite being inherited from AR::Base...
-      if receiver.superclass.to_s == 'ActiveRecord::Base'
-        # active record gets this style of integration
-        receiver.class_eval do
-          alias_method :initialize_before_workflow, :initialize
-          attr_accessor :workflow
-          def initialize(attributes = nil)
-            initialize_before_workflow(attributes)
-            @workflow = Workflow.new(self.class)
-            @workflow.bind_to(self)
-          end
-          def after_find
-            @workflow = if workflow_state.nil?
-              Workflow.new(self.class)
-            else
-              Workflow.reconstitute(workflow_state.to_sym, self.class)
+      if receiver.to_s == 'ActiveRecord::Base'
+        receiver.instance_eval do
+          def workflow(&specification)
+            Workflow.specify(self, &specification)
+            class_eval do
+              alias_method :initialize_before_workflow, :initialize
+              attr_accessor :workflow
+              def initialize(attributes = nil)
+                initialize_before_workflow(attributes)
+                @workflow = Workflow.new(self.class)
+                @workflow.bind_to(self)
+              end
+              def after_find
+                @workflow = if workflow_state.nil?
+                  Workflow.new(self.class)
+                else
+                  Workflow.reconstitute(workflow_state.to_sym, self.class)
+                end
+                @workflow.bind_to(self)
+              end
+              alias_method :before_save_before_workflow, :before_save
+              def before_save
+                before_save_before_workflow
+                self.workflow_state = @workflow.state.to_s
+              end
             end
-            @workflow.bind_to(self)
-          end
-          alias_method :before_save_before_workflow, :before_save
-          def before_save
-            before_save_before_workflow
-            self.workflow_state = @workflow.state.to_s
           end
         end
+        # active record gets this style of integration
       else
+        receiver.instance_eval do
+          def workflow(&specification)
+            Workflow.specify(self, &specification)
+          end
+        end
         # anything else gets this style of integration
         receiver.class_eval do
           alias_method :initialize_before_workflow, :initialize

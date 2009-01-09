@@ -1,6 +1,14 @@
 %w(rubygems active_support).each { |f| require f }
 
 module Workflow
+  @@logger = nil
+  def self.logger=(obj) @@logger = obj; end
+  def logger=(obj) @@logger = obj; end
+  def self.logger() @@logger; end
+  def logger() @@logger; end
+  
+  WORKFLOW_DEFAULT_LOGGER = Logger.new(STDERR)
+  WORKFLOW_DEFAULT_LOGGER.level = Logger::WARN
 
   @@specifications = {}
 
@@ -38,48 +46,56 @@ module Workflow
       find_spec_for(name).to_instance(reconstitute_at)
     end
     
-    # this method should be split up into Workflow::Integrator
-    # utility sub-classes, with an ActiveRecordIntegrator and a
-    # ClassIntegrator... that both respond to integrate! :)
+    def active_record?(receiver)
+      receiver.to_s == 'ActiveRecord::Base'
+    end
+    
     def append_features(receiver)
-      # this should check the inheritance tree, as subclassed models
-      # won't return ActiveRecord::Base, they'll return something else
-      # despite being inherited from AR::Base...
-      if receiver.to_s == 'ActiveRecord::Base'
+      if active_record?(receiver)
         receiver.instance_eval do
           def workflow(&specification)
+            Workflow.logger.debug "Adding Workflow to ActiveRecord object #{self}"
             Workflow.specify(self, &specification)
+
             class_eval do
-              alias_method :initialize_before_workflow, :initialize
               attr_accessor :workflow
+              alias_method :initialize_before_workflow, :initialize
+
               def initialize(attributes = nil)
+                Workflow.logger.debug "calling Workflow's redefined initializer"
                 initialize_before_workflow(attributes)
                 @workflow = Workflow.new(self.class)
                 @workflow.bind_to(self)
               end
+              
               def after_find
+                Workflow.logger.debug "after find called"
                 @workflow = if workflow_state.nil?
-                  Workflow.new(self.class)
-                else
-                  Workflow.reconstitute(workflow_state.to_sym, self.class)
-                end
+                              Workflow.new(self.class)
+                            else
+                              Workflow.reconstitute(workflow_state.to_sym, self.class)
+                            end
                 @workflow.bind_to(self)
               end
-              alias_method :before_save_before_workflow, :before_save
-              def before_save
-                before_save_before_workflow
+              
+              before_save :workflow_before_save # chain the before save method
+
+              def workflow_before_save
+                Workflow.logger.debug "before save called"
                 self.workflow_state = @workflow.state.to_s
               end
             end
           end
         end
-        # active record gets this style of integration
       else
+        Workflow.logger.debug "Adding Workflow to object #{self}"
+
         receiver.instance_eval do
           def workflow(&specification)
             Workflow.specify(self, &specification)
           end
         end
+        
         # anything else gets this style of integration
         receiver.class_eval do
           alias_method :initialize_before_workflow, :initialize
@@ -92,7 +108,6 @@ module Workflow
         end
       end
     end
-    
   end
   
   class Specification
@@ -116,6 +131,7 @@ module Workflow
   private
   
     def state(name, meta = {:meta => {}}, &events_and_etc)
+      Workflow.logger.debug "Defining state(#{name}) for #{self}"
       # meta[:meta] to keep the API consistent..., gah
       self.states << State.new(name, meta[:meta])
       instance_eval(&events_and_etc) if events_and_etc
@@ -159,6 +175,7 @@ module Workflow
     attr_accessor :states, :meta, :current_state, :on_transition, :context
     
     def initialize(states, on_transition, meta = {}, reconstitute_at = nil)
+      Workflow.logger.debug "Creating workflow instance"
       @states, @on_transition, @meta = states, on_transition, meta
       @context = self
       if reconstitute_at.nil?
@@ -210,6 +227,7 @@ module Workflow
   private
   
     def patch_context(context)
+      Workflow.logger.debug "patching context of #{context.inspect} to include @workflow"
       context.instance_variable_set("@workflow", self)
       context.instance_eval do
         alias :method_missing_before_workflow :method_missing
@@ -228,6 +246,7 @@ module Workflow
         # end
         #
         def method_missing(method, *args)
+          Workflow.logger.debug "#{self} method missing: #{method}(#{args.inspect})"
           @workflow.send(method, *args)
         rescue NoMethodError
           method_missing_before_workflow(method, *args)
@@ -329,3 +348,5 @@ module Workflow
   end
   
 end
+
+Workflow.logger = Workflow::WORKFLOW_DEFAULT_LOGGER

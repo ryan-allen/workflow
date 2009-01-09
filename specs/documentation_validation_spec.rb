@@ -1,7 +1,6 @@
 require "#{File.dirname(__FILE__)}/bootstrap"
 
 describe 'As described in README,' do
-  
   setup do
     Workflow.specify 'Article Workflow', :meta => {:is_for => :articles_duh} do
       state :new do
@@ -162,7 +161,7 @@ describe 'As described in README,' do
   end
   
   describe 'reflection' do
-  
+    
     it 'reflects states' do
       @workflow.states.should == [:new, :awaiting_review, :being_reviewed, :accepted, :rejected]
     end
@@ -223,7 +222,7 @@ describe 'As described in README,' do
     end
     
   end
-    
+  
   it 'fires action -> on_transition -> on_exit -> TRANSITION -> on_entry' do
     Workflow.specify 'Strictly Ordering' do
       state :start do
@@ -299,176 +298,84 @@ describe 'As described in README,' do
     
   end
   
-  # on initialize, we have to make sure we've either:
-  #
-  #   a) reconsisited a instance if the state is set
-  #   b) created a new instance if the state is not set
-  #
-  # before_save, we serialise the state to the state field
-  # 
-  describe 'AR integration' do
-    
-    before do
-      require 'rubygems'
-      require 'activerecord'
-      @database = './test.sqlite3'
-      File.delete(@database) if File.exist?(@database)
-      ActiveRecord::Base.establish_connection(:adapter  => 'sqlite3', 
-                                              :database => @database)
-      ActiveRecord::Migration.verbose = false
-      ActiveRecord::Schema.define(:version => 1) do
-        create_table 'items', :force => true do |t|
-          t.string 'workflow_state'
-        end
-        create_table 'users', :force => true do |t|
-          t.string 'username'
-        end
-      end
-      if not defined?(Item)
-        require "#{File.dirname(__FILE__)}/../init"
-        class Item < ActiveRecord::Base; end 
-        class User < ActiveRecord::Base; end
-      end
-      Item.class_eval do
-        workflow do
-          state :first do
-            event :next, :transitions_to => :second
-          end
-          state :second do
-            event :next, :transitions_to => :third
-          end
-          state :third
-        end
-      end
-    end
-    
-    after do
-      @database = './test.sqlite3'
-      File.delete(@database) if File.exist?(@database)
-    end
-    
-    it 'default_values_are_what_we_expect' do
-      @item = Item.new
-      @item.state.should == :first
-      @item.workflow.should be_kind_of(Workflow::Instance)
-    end
-
-    it 'serializes current state to a field on ' do
-      @item = Item.new
-      @item.save
-      @item.workflow_state.should == 'first'
-    end
-        
-    it 'correctly reconsitutes a workflow after find' do
-      @item = Item.new
-      @item.save
-      # heh, futz it baby!
-      @item.connection.execute("update items set workflow_state = 'second' where id = #{@item.id}")
-      @item = Item.find(@item.id)
-      @item.state.should == :second
-    end
-    
-    it 'default to first state if workflow_state is nil in the database' do
-      @item = Item.new
-      @item.next # go to second
-      @item.save
-      @item.connection.execute("update items set workflow_state = null where id = #{@item.id}")
-      @item = Item.find(@item.id)
-      @item.workflow.state.should == :first
-    end
-    
-    it 'behaves well with the override of initialize'
-    it 'behaves well with any existing before_save methods'
-    it 'can use a custom field for serializing the current state to'
-    
-    # it 'should save to a field called state by default'
-    # [:state, :workflow_state, :something_random].each do |field|
-    #   it "should initialize in default state if #{field} is null"
-    #   it "should reconstitute in state if #{field} is not null"
-    #   it "should raise exception if value in #{field} is not a valid state"
-    #   it "should serialize out to #{field} before save"
-    # end
-    
-  end
-  
   describe 'blatting (overriding of existing specs)' do
     
-    #before do
-    #  $on_entry, $on_exit, $on_transition = nil, nil, []
-    #  Workflow.specify 'blatting' do
-    #    state :first do
-    #      event :next, :transitions_to => :second
-    #      on_exit { |*args| $on_exit = :before } 
-    #    end
-    #    state :second do
-    #      event :previous, :transitions_to => :first
-    #      event :next, :transitions_to => :third
-    #      on_entry { |*args| $on_entry = :before } 
-    #    end
-    #    state :third do
-    #      event :previous, :transitions_to => :second
-    #    end
-    #    on_transition { |*args| $on_transition << :hey! } 
-    #  end
-    #  @workflow = Workflow.new('blatting')
-    #end
-   # 
-   # def blat(&with)
-   #   Workflow.specify('blatting', &with)
-   # end
-   # 
-   # it 'can introduce new states' do
-   #   @workflow.states.should == [:first, :second, :third]
-   #   blat { state :fourth }
-   #   @workflow.states.should == [:first, :second, :third, :fourth]
-   # end
-   # 
-   # it 'can introduce new events in states' do
-   #   @workflow.states(:third).events == [:previous]
-   #   blat { state(:third) { event :next, :transitions_to => :first } }
-   #   @workflow.states(:third).events.should == [:previous, :next]
-   # end
-   # 
-   # it 'can change transitions_to in existing events' do
-   #   @workflow.state(:third).events(:previous).transitions_to.should == :second
-   #   blat { state state(:third) { event :previous, :transitions_to => :first } }
-   #   @workflow.state(:third).events(:previous).transitions_to.should == :first
-   # end
-   # 
-   # it 'can replace on_entry hooks' do
-   #   @workflow.next
-   #   $on_exit.should == :before
-   #   @workflow.previous
-   #   blat { state(:first) { on_exit { |*args| $on_exit = :after } } }
-   #   @workflow.next
-   #   $on_exit.should == :after
-   # end
-   # 
-   # it 'can replace on_exit hooks' do
-   #   @workflow.next
-   #   $on_entry.should == :before
-   #   blat { state(:second) { on_entry { |*args| $on_entry = :after } } }
-   #   @workflow.next
-   #   @workflow.previous
-   #   $on_entry.should == :after
-   # end
-   # 
-   # it 'can replace on_transition hooks' do
-   #   $on_transition.should == []
-   #   @workflow.next
-   #   @workflow.next
-   #   $on_transition.should == [:hey!, :hey!]
-   #   blat { on_transition { |*args| $on_transition << :yo_momma! } }
-   #   @workflow.previous
-   #   $on_transition.should == [:hey!, :hey!, :yo_momma!]
-   # end
+    before do
+      pending "blatting not working yet"
+      $on_entry, $on_exit, $on_transition = nil, nil, []
+      Workflow.specify 'blatting' do
+        state :first do
+          event :next, :transitions_to => :second
+          on_exit { |*args| $on_exit = :before } 
+        end
+        state :second do
+          event :previous, :transitions_to => :first
+          event :next, :transitions_to => :third
+          on_entry { |*args| $on_entry = :before } 
+        end
+        state :third do
+          event :previous, :transitions_to => :second
+        end
+        on_transition { |*args| $on_transition << :hey! } 
+      end
+      @workflow = Workflow.new('blatting')
+    end
     
-   # it 'merges instance meta'
-   # it 'merges state meta'
-   # it 'merges event meta'
+    def blat(&with)
+      Workflow.specify('blatting', &with)
+    end
+    
+    it 'can introduce new states' do
+      @workflow.states.should == [:first, :second, :third]
+      blat { state :fourth }
+      @workflow.states.should == [:first, :second, :third, :fourth]
+    end
+    
+    it 'can introduce new events in states' do
+      @workflow.states(:third).events == [:previous]
+      blat { state(:third) { event :next, :transitions_to => :first } }
+      @workflow.states(:third).events.should == [:previous, :next]
+    end
+    
+    it 'can change transitions_to in existing events' do
+      @workflow.state(:third).events(:previous).transitions_to.should == :second
+      blat { state state(:third) { event :previous, :transitions_to => :first } }
+      @workflow.state(:third).events(:previous).transitions_to.should == :first
+    end
+    
+    it 'can replace on_entry hooks' do
+      @workflow.next
+      $on_exit.should == :before
+      @workflow.previous
+      blat { state(:first) { on_exit { |*args| $on_exit = :after } } }
+      @workflow.next
+      $on_exit.should == :after
+    end
+    
+    it 'can replace on_exit hooks' do
+      @workflow.next
+      $on_entry.should == :before
+      blat { state(:second) { on_entry { |*args| $on_entry = :after } } }
+      @workflow.next
+      @workflow.previous
+      $on_entry.should == :after
+    end
+    
+    it 'can replace on_transition hooks' do
+      $on_transition.should == []
+      @workflow.next
+      @workflow.next
+      $on_transition.should == [:hey!, :hey!]
+      blat { on_transition { |*args| $on_transition << :yo_momma! } }
+      @workflow.previous
+      $on_transition.should == [:hey!, :hey!, :yo_momma!]
+    end
+    
+    it 'merges instance meta'
+    it 'merges state meta'
+    it 'merges event meta'
 
-   it 'does not work yet'
+    it 'does not work yet'
 
   end
-  
 end

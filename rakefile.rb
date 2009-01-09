@@ -2,6 +2,9 @@ task :default do
   Rake::Task['run_specs'].invoke
 end
 
+task :spec => [:run_specs] do
+end
+
 task :run_specs do
   puts `spec --require specs/bootstrap.rb --color specs/*_spec.rb`
   raise "specs failed" if $?.exitstatus != 0

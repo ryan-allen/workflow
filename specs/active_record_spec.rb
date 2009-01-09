@@ -88,11 +88,29 @@ describe "Active Record Workflow" do
   end
 
   it 'default to first state if workflow_state is nil in the database' do
-    @item.next # go to second
     @item.save
     @item.connection.execute("update items set workflow_state = null where id = #{@item.id}")
     @item = Item.find(@item.id)
     @item.workflow.state.should == :first
+  end
+
+  it 'should keep all state fields in sync' do
+    @item.state.should == :first
+    @item.workflow.state.should == :first
+    @item.workflow.current_state.name.should == :first
+    @item.workflow_state.should == "first"
+
+    @item.next # go to second
+    @item.state.should == :second
+    @item.workflow.state.should == :second
+    @item.workflow.current_state.name.should == :second
+    @item.workflow_state.should == "second"
+
+    @item.next # go to third
+    @item.state.should == :third
+    @item.workflow.state.should == :third
+    @item.workflow.current_state.name.should == :third
+    @item.workflow_state.should == "third"
   end
 
   it 'behaves well with the override of initialize'
@@ -147,7 +165,6 @@ describe "Active Record Workflow" do
   def standard_tests(ar_object)
     ar_object.workflow.should be_kind_of(Workflow::Instance)
     ar_object.state(ar_object.state).events.should_not be_empty
-    ar_object.should respond_to(:workflow_before_save)
     ar_object.should respond_to(:after_find)
   end
 end

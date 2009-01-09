@@ -1,7 +1,7 @@
 require "#{File.dirname(__FILE__)}/bootstrap"
 
 describe 'As described in README,' do
-  setup do
+  before :each do
     Workflow.specify 'Article Workflow', :meta => {:is_for => :articles_duh} do
       state :new do
         event :submit, :transitions_to => :awaiting_review
@@ -9,25 +9,28 @@ describe 'As described in README,' do
       state :awaiting_review, :meta => {:one => 1} do
         event :review, :transitions_to => :being_reviewed do |reviewer|
           reviewer << 'oi!'
-        end 
+        end
       end
       state :being_reviewed do
         event :accept, :transitions_to => :accepted, :meta => {:two, 2}
         event :reject, :transitions_to => :rejected
         on_exit do |new_state, event_fired, *event_args|
           $on_exit_new_state = new_state
-          $on_exit_event_fired = event_fired 
+          $on_exit_event_fired = event_fired
           $on_exit_event_args = event_args
         end
       end
       state :accepted do
-        event(:delete)  { |msg| halt  msg }
+        event(:delete)  { |msg|
+          puts "expecting to be in Object #{self.inspect}"
+          halt  msg
+        }
         event(:delete!) { |msg| halt! msg }
       end
       state :rejected do
         on_entry do |old_state, event_fired, *event_args|
           $on_entry_old_state = old_state
-          $on_entry_event_fired = event_fired 
+          $on_entry_event_fired = event_fired
           $on_entry_event_args = event_args
         end
       end
@@ -39,20 +42,23 @@ describe 'As described in README,' do
       end
     end
     @workflow = Workflow.new('Article Workflow')
+    puts "newly created workflow looks like #{@workflow.inspect}"
     # @object = Object.new; @workflow.bind_to(@object); @workflow = @object
   end
-  
-  after { Workflow.reset! }
-  
+
+  after do
+    Workflow.reset!
+  end
+
   it 'has a default state of :new' do
     @workflow.state.should == :new
   end
-  
+
   it 'transitions to :awaiting_review on :submit' do
     @workflow.submit
     @workflow.state.should == :awaiting_review
   end
-  
+
   it 'likes predicates for quering of current state' do
     @workflow.new?.should == true
     @workflow.awaiting_review?.should == false
@@ -60,7 +66,7 @@ describe 'As described in README,' do
     @workflow.new?.should == false
     @workflow.awaiting_review?.should == true
   end
-  
+
   it 'should do stuff with args to events' do
     @workflow.submit
     @reviewer = ''
@@ -85,7 +91,7 @@ describe 'As described in README,' do
     $on_exit_event_fired.should == :reject
     $on_exit_event_args.should == ['coz i said so']
   end
-  
+
   it 'should be like, cool with on_transition' do
     @workflow.submit(1,2,3)
     $on_transition_old_state.should == :new
@@ -93,40 +99,41 @@ describe 'As described in README,' do
     $on_transition_triggering_event.should == :submit
     $on_transition_event_args.should == [1,2,3]
   end
-  
+
   describe 'halting' do
-    
+
     before do
       @workflow = Workflow.reconstitute(:accepted, 'Article Workflow')
-      @reason = 'i said so'      
+      @reason = 'i said so'
     end
-    
+
     describe 'with #halt' do
-      
+
       before do
+        puts "workflow events are #{@workflow.current_state.events.inspect}"
         @return_value = @workflow.delete(@reason)
       end
-      
+
       it 'returns false from the event' do
         @return_value.should == false
       end
-      
+
       it 'has halted?' do
         @workflow.halted?.should == true
       end
-      
+
       it 'should not transition' do
         @workflow.state.should == :accepted
       end
-      
+
       it 'has a message on Workflow#halted_because' do
         @workflow.halted_because.should == @reason
       end
-      
+
     end
-    
+
     describe 'with #halt!' do
-      
+
       before do
         begin
           @exception_raised = nil
@@ -135,60 +142,60 @@ describe 'As described in README,' do
           @exception_raised = e
         end
       end
-      
+
       it 'raises a Workflow::Halted exception' do
         @exception_raised.should be_kind_of(Workflow::Instance::TransitionHalted)
       end
-      
+
       it 'has halted?' do
         @workflow.halted?.should == true
       end
-      
+
       it 'should not transition' do
         @workflow.state.should == :accepted
       end
-      
+
       it 'has a message on Workflow#halted_because' do
         @workflow.halted_because.should == @reason
       end
-      
+
       it 'has a message on Workflow::Halted#halted_because' do
         @exception_raised.halted_because.should == @reason
       end
-      
+
     end
-    
+
   end
-  
+
   describe 'reflection' do
-    
+
     it 'reflects states' do
       @workflow.states.should == [:new, :awaiting_review, :being_reviewed, :accepted, :rejected]
     end
-    
+
     it 'reflects events of a state' do
       @workflow.states(:being_reviewed).events.should == [:accept, :reject]
     end
-    
+
     it 'reflects transitions_to of an event' do
       @workflow.states(:new).events(:submit).transitions_to.should == :awaiting_review
     end
-    
+
     describe 'metadata' do
-      
+
       describe 'of an instance' do
-        
+
         it 'works like a hash' do
           @workflow.meta.should == {:is_for => :articles_duh}
         end
-        
+
         it 'initializes as an empty hash if not specified' do
           Workflow.specify('Empty!') { state :just_this_one }
           Workflow.new('Empty!').meta.should == {}
         end
-        
+
         it 'behaves like an object'
-        
+
       end
 
       describe 'of a state' do
@@ -220,9 +227,9 @@ describe 'As described in README,' do
       end
 
     end
-    
+
   end
-  
+
   it 'fires action -> on_transition -> on_exit -> TRANSITION -> on_entry' do
     Workflow.specify 'Strictly Ordering' do
       state :start do
@@ -239,17 +246,17 @@ describe 'As described in README,' do
     @workflow.go!
     $order.should == [:action, :on_transition, :on_exit, :on_entry]
   end
-  
+
   it 'provides helpful extra info in NoMethodError'
   it 'tests NoMethodError extensively, with like, stuff and contexts OKOK?!!1'
 
   # :)
 
   describe 'class integration' do
-    
+
     before do
       unless defined?(GotWorkflow)
-        GotWorkflow = Class.new 
+        GotWorkflow = Class.new
         GotWorkflow.class_eval { include Workflow }
       end
       GotWorkflow.class_eval do
@@ -272,16 +279,16 @@ describe 'As described in README,' do
     it 'has a workflow' do
       @got_workflow.workflow.should be_kind_of(Workflow::Instance)
     end
-    
+
     it 'is bound to the workflow context, which implies scope and etc...' do
       @got_workflow.workflow.context.should == @got_workflow
     end
-    
+
     it 'has a method missing proxy, and proxies' do
       @got_workflow.workflow.should_receive(:state)
       @got_workflow.state
     end
-    
+
     it 'test it kinda like integration style, lols' do
       @got_workflow.states.should == [:first, :second, :third]
       @got_workflow.states(:second).events.should == [:forward, :backward]
@@ -295,54 +302,54 @@ describe 'As described in README,' do
       @got_workflow.backward
       @got_workflow.state.should == :first
     end
-    
+
   end
-  
+
   describe 'blatting (overriding of existing specs)' do
-    
+
     before do
       pending "blatting not working yet"
       $on_entry, $on_exit, $on_transition = nil, nil, []
       Workflow.specify 'blatting' do
         state :first do
           event :next, :transitions_to => :second
-          on_exit { |*args| $on_exit = :before } 
+          on_exit { |*args| $on_exit = :before }
         end
         state :second do
           event :previous, :transitions_to => :first
           event :next, :transitions_to => :third
-          on_entry { |*args| $on_entry = :before } 
+          on_entry { |*args| $on_entry = :before }
         end
         state :third do
           event :previous, :transitions_to => :second
         end
-        on_transition { |*args| $on_transition << :hey! } 
+        on_transition { |*args| $on_transition << :hey! }
       end
       @workflow = Workflow.new('blatting')
     end
-    
+
     def blat(&with)
       Workflow.specify('blatting', &with)
     end
-    
+
     it 'can introduce new states' do
       @workflow.states.should == [:first, :second, :third]
       blat { state :fourth }
       @workflow.states.should == [:first, :second, :third, :fourth]
     end
-    
+
     it 'can introduce new events in states' do
       @workflow.states(:third).events == [:previous]
       blat { state(:third) { event :next, :transitions_to => :first } }
       @workflow.states(:third).events.should == [:previous, :next]
     end
-    
+
     it 'can change transitions_to in existing events' do
       @workflow.state(:third).events(:previous).transitions_to.should == :second
       blat { state state(:third) { event :previous, :transitions_to => :first } }
       @workflow.state(:third).events(:previous).transitions_to.should == :first
     end
-    
+
     it 'can replace on_entry hooks' do
       @workflow.next
       $on_exit.should == :before
@@ -351,7 +358,7 @@ describe 'As described in README,' do
       @workflow.next
       $on_exit.should == :after
     end
-    
+
     it 'can replace on_exit hooks' do
       @workflow.next
       $on_entry.should == :before
@@ -360,7 +367,7 @@ describe 'As described in README,' do
       @workflow.previous
       $on_entry.should == :after
     end
-    
+
     it 'can replace on_transition hooks' do
       $on_transition.should == []
       @workflow.next
@@ -370,7 +377,7 @@ describe 'As described in README,' do
       @workflow.previous
       $on_transition.should == [:hey!, :hey!, :yo_momma!]
     end
-    
+
     it 'merges instance meta'
     it 'merges state meta'
     it 'merges event meta'

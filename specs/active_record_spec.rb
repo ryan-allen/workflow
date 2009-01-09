@@ -22,6 +22,7 @@ describe "Active Record Workflow" do
       create_table 'items', :force => true do |t|
         t.string 'workflow_state'
         t.string 'name'
+        t.string 'all_caps_name'
         t.string 'type'
         t.integer 'user_id'
       end
@@ -33,6 +34,7 @@ describe "Active Record Workflow" do
 
     if not defined?(Item)
       require "#{File.dirname(__FILE__)}/../init"
+
       class User < ActiveRecord::Base
         has_many :items
         has_one  :special_item, :class_name => "Item", :foreign_key =>"user_id"
@@ -159,6 +161,36 @@ describe "Active Record Workflow" do
       loaded_item.before_save_called.should be_nil
       loaded_item.save!
       loaded_item.before_save_called.should be_true
+    end
+  end
+
+  describe "broken" do
+    it "should be able to access the ActiveRecord attributes easily" do
+      ActiveRecord::Schema.define(:version => 1) do
+        create_table 'easy_accesses', :force => true do |t|
+          t.string 'workflow_state'
+          t.string 'name'
+        end
+
+        create_table 'users', :force => true do |t|
+          t.string 'username'
+        end
+      end
+
+      class EasyAccess < ActiveRecord::Base
+        workflow do
+          state :first do
+            event :next, :transitions_to => :second do
+              # TODO: This can only be accessed by context.name, which is not nice.
+              name.upcase! unless name.nil?
+            end
+          end
+        end
+      end
+
+      @easy = EasyAccess.new({:name => "mark"})
+      @easy.next  # failing
+      @easy.name.should == "MARK"
     end
   end
 

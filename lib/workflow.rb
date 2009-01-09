@@ -47,7 +47,11 @@ module Workflow
     end
 
     def active_record?(receiver)
-      receiver.to_s == 'ActiveRecord::Base'
+      if receiver.nil?
+        false
+      else
+        receiver.ancestors.include?(ActiveRecord::Base)
+      end
     end
 
     def append_features(receiver)

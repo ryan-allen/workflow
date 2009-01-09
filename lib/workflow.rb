@@ -188,10 +188,10 @@ module Workflow
     end
 
     def current_state=(var)
-      puts "setting state to #{var}"
-      puts "1 self is #{self}"
-      puts "2 self.context is #{self.context}"
-      puts "3 wfs is #{self.context.workflow_state}" if self.context
+#      puts "setting state to #{var}"
+#      puts "1 self is #{self}"
+#      puts "2 self.context is #{self.context}"
+#      puts "3 wfs is #{self.context.workflow_state}" if self.context
       @current_state=var
     end
 
@@ -337,39 +337,57 @@ module Workflow
       @raise_exception_on_halt = true
     end
 
+    # TODO: There is identical code up int he Workflow module - remove the duplication
+    def active_record?(receiver)
+      if receiver.nil?
+        false
+      else
+        puts "ancestors #{receiver.class.ancestors.inspect}"
+        receiver.class.ancestors.include?(ActiveRecord::Base)
+      end
+    end
+
     def transition(from, to, name, *args)
       run_on_exit(from, to, name, *args)
       self.current_state = to
-      if @context
-        puts "TRANSITION: wfs was #{@context.workflow_state}"
-      else
-        puts "TRANSITION: CONTEXT NOT SET"
-      end
-      @context.workflow_state = to.name.to_s if @context   # may not have been defined when bind_to is called
-      puts "TRANSITION: wfs is #{@context.workflow_state}" if @context
-      puts "***** context is #{@context}"
-      puts "***** current_state is #{current_state}"
-      puts "***** workflow state is #{@context.workflow_state} and current state is #{to.name}" if @context
+#      if @context
+#        puts "TRANSITION: wfs was #{@context.workflow_state}"
+#      else
+#        puts "TRANSITION: CONTEXT NOT SET"
+#      end
+      puts "context is #{@context.inspect}"
+      puts "checking to see if we need to update the workflow state #{active_record?(@context)}"
+      @context.workflow_state = to.name.to_s if active_record?(@context)   # may not have been defined when bind_to is called
+#      puts "TRANSITION: wfs is #{@context.workflow_state}" if @context
+#      puts "***** context is #{@context}"
+#      puts "***** current_state is #{current_state}"
+#      puts "***** workflow state is #{@context.workflow_state} and current state is #{to.name}" if @context
       run_on_entry(to, from, name, *args)
     end
 
     def run_on_transition(from, to, event, *args)
-      context.instance_exec(from.name, to.name, event, *args, &on_transition) if on_transition
+      puts "YYY context is #{context}"
+      puts "YYY @context is #{@context}"
+      puts "YYY self is #{self}"
+      self.instance_exec(from.name, to.name, event, *args, &on_transition) if on_transition
     end
 
     def run_action(action, *args)
-      context.instance_exec(*args, &action) if action
+      puts "XXX context is #{context}"
+      puts "XXX @context is #{@context}"
+      puts "XXX self is #{self}"
+      self.instance_exec(*args, &action) if action
     end
 
     def run_on_entry(state, prior_state, triggering_event, *args)
       if state.on_entry
-        context.instance_exec(prior_state.name, triggering_event, *args, &state.on_entry)
+        self.instance_exec(prior_state.name, triggering_event, *args, &state.on_entry)
       end
     end
 
     def run_on_exit(state, new_state, triggering_event, *args)
       if state and state.on_exit
-        context.instance_exec(new_state.name, triggering_event, *args, &state.on_exit)
+        self.instance_exec(new_state.name, triggering_event, *args, &state.on_exit)
       end
     end
 

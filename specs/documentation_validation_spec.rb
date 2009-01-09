@@ -115,7 +115,17 @@ describe 'As described in README,' do
       end
 
       it 'returns false from the event' do
+
+
+
+
         @return_value.should == false
+
+
+
+
+
+
       end
 
       it 'has halted?' do

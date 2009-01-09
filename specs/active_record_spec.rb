@@ -120,15 +120,27 @@ describe "Active Record Workflow" do
 
     it "should add workflow when loaded via a has_many relationship" do
       loaded_item = @mark.items.first
-      standard_tests(loaded_item)
       loaded_item.workflow_state.should == "first"
       loaded_item.state.should == :first
-      loaded_item.state.should == :first
+      standard_tests(loaded_item)
       loaded_item.next
+      loaded_item.save!
+      loaded_item.should be_valid
+    end
+
+    it "should add workflow when loaded via a has_one relationship" do
+      loaded_item = @mark.special_item
+      loaded_item.workflow_state.should == "first"
+      loaded_item.state.should == :first  # this does not work and should
+      standard_tests(loaded_item)
+      loaded_item.should be_valid
+    end
+
+    it "should not clobber the current before_save methods" do
+      loaded_item = @mark.items.first
       loaded_item.before_save_called.should be_nil
       loaded_item.save!
       loaded_item.before_save_called.should be_true
-      loaded_item.should be_valid
     end
   end
 

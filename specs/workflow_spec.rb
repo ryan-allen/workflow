@@ -167,7 +167,6 @@ describe 'Workflow:' do
         state(:second) { event(:next, :transitions_to => :third)  { |i| nil } }
         state(:third)  { event(:back, :transitions_to => :second) { |i| nil } }
         on_transition do |from, to, triggering_event, *event_args|
-          puts "LLLL self is #{self}"
           record [from, to, triggering_event]+event_args
         end
       end
@@ -207,13 +206,12 @@ describe 'Workflow:' do
         state :fourth
         on_transition do |from, to, triggering_event, *args|
           begin
-            puts "111 from is #{from} and to is #{to}"
-            puts "222 context is #{context}"
             context.record "transitioned from #{from} to #{to}"
           rescue
             # ok ok shit fuck cunt arse motherfucker, nomethoderror
-            # reraising on our behalfs were casing this to bunk up
+            # TODO: reraising on our behalfs were casing this to bunk up
             # coz it said from.name, to.name, lame lame lame (pls fix me ok?)
+            # TODO: This is failing because of the recorder.  Do we really need it?
 #            raise "#{$!.inspect}"
           end
         end

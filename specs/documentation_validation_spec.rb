@@ -21,10 +21,7 @@ describe 'As described in README,' do
         end
       end
       state :accepted do
-        event(:delete)  { |msg|
-          puts "expecting to be in Object #{self.inspect}"
-          halt  msg
-        }
+        event(:delete)  { |msg| halt msg  }
         event(:delete!) { |msg| halt! msg }
       end
       state :rejected do
@@ -42,8 +39,6 @@ describe 'As described in README,' do
       end
     end
     @workflow = Workflow.new('Article Workflow')
-    puts "newly created workflow looks like #{@workflow.inspect}"
-    # @object = Object.new; @workflow.bind_to(@object); @workflow = @object
   end
 
   after do
@@ -110,22 +105,11 @@ describe 'As described in README,' do
     describe 'with #halt' do
 
       before do
-        puts "workflow events are #{@workflow.current_state.events.inspect}"
         @return_value = @workflow.delete(@reason)
       end
 
       it 'returns false from the event' do
-
-
-
-
         @return_value.should == false
-
-
-
-
-
-
       end
 
       it 'has halted?' do

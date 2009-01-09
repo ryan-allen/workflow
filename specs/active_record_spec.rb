@@ -111,6 +111,27 @@ describe "Active Record Workflow" do
     standard_tests(sub_item)
   end
 
+  describe "associations" do
+    before :each do
+      @mark = User.create!({:username => "mark"})
+      chocolate = Item.create!({:name => "chocolate", :user => @mark})
+      candy = Item.create!({:name => "candy", :user => @mark})
+    end
+
+    it "should add workflow when loaded via a has_many relationship" do
+      loaded_item = @mark.items.first
+      standard_tests(loaded_item)
+      loaded_item.workflow_state.should == "first"
+      loaded_item.state.should == :first
+      loaded_item.state.should == :first
+      loaded_item.next
+      loaded_item.before_save_called.should be_nil
+      loaded_item.save!
+      loaded_item.before_save_called.should be_true
+      loaded_item.should be_valid
+    end
+  end
+
   def standard_tests(ar_object)
     ar_object.workflow.should be_kind_of(Workflow::Instance)
     ar_object.state(ar_object.state).events.should_not be_empty

@@ -256,7 +256,17 @@ module Workflow
         #   super ?
         # end
         #
-#        puts "defining method missing on #{context.inspect}"
+
+        alias :respond_to_before_workflow :respond_to?
+
+        # rails 2.2 is stricter about method_missing, now we need respond_to
+        def respond_to?(method)
+          if potential_methods.include?(method.to_sym)
+            return true
+          else
+            respond_to_before_workflow(method)
+          end
+        end
 
         def method_missing(method, *args)
           Workflow.logger.debug "#{self} method missing: #{method}(#{args.inspect})"

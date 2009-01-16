@@ -174,6 +174,7 @@ module Workflow
     def initialize(states, on_transition, meta = {}, reconstitute_at = nil)
       Workflow.logger.debug "Creating workflow instance"
       @states, @on_transition, @meta = states, on_transition, meta
+      @context = self
       if reconstitute_at.nil?
         transition(nil, states.first, nil)
       else
@@ -318,22 +319,22 @@ module Workflow
     end
 
     def run_on_transition(from, to, event, *args)
-      self.instance_exec(from.name, to.name, event, *args, &on_transition) if on_transition
+      context.instance_exec(from.name, to.name, event, *args, &on_transition) if on_transition
     end
 
     def run_action(action, *args)
-      self.instance_exec(*args, &action) if action
+      context.instance_exec(*args, &action) if action
     end
 
     def run_on_entry(state, prior_state, triggering_event, *args)
       if state.on_entry
-        self.instance_exec(prior_state.name, triggering_event, *args, &state.on_entry)
+        context.instance_exec(prior_state.name, triggering_event, *args, &state.on_entry)
       end
     end
 
     def run_on_exit(state, new_state, triggering_event, *args)
       if state and state.on_exit
-        self.instance_exec(new_state.name, triggering_event, *args, &state.on_exit)
+        context.instance_exec(new_state.name, triggering_event, *args, &state.on_exit)
       end
     end
 

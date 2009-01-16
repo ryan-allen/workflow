@@ -185,6 +185,7 @@ describe "Active Record Workflow" do
               name.upcase! unless name.nil?
             end
           end
+          state :second
         end
       end
 

@@ -191,22 +191,22 @@ describe 'Workflow:' do
 
     before do
       Workflow.specify do
-        state(:first)  { event(:next, :transitions_to => :second) {|i| context.record i }}
-        state(:second) { event(:next, :transitions_to => :third)  {|i| context.record i }}
+        state(:first)  { event(:next, :transitions_to => :second) {|i| record i }}
+        state(:second) { event(:next, :transitions_to => :third)  {|i| record i }}
         state :third do
           event(:next, :transitions_to => :fourth)
           event(:back, :transitions_to => :second) {|i| record i }
           on_entry do |prior_state, triggering_event, *event_args|
-            context.record 'entered :third'
+            record 'entered :third'
           end
           on_exit do |new_state, triggering_event, *event_args|
-            context.record 'exited :third'
+            record 'exited :third'
           end
         end
         state :fourth
         on_transition do |from, to, triggering_event, *args|
           begin
-            context.record "transitioned from #{from} to #{to}"
+            record "transitioned from #{from} to #{to}"
           rescue
             # ok ok shit fuck cunt arse motherfucker, nomethoderror
             # TODO: reraising on our behalfs were casing this to bunk up

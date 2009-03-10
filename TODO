@@ -30,3 +30,18 @@
  [ ] give the readme some working over with brass knucles
 
  is that it now??!
+
+ [ ] we need a method in actions, so we can omit transitions_to, so we can transition
+     from one event to an arbitrary state, i.e.
+
+     state :new
+       event :create do
+         if valid?
+           transition_to :valid
+         else
+           transition_to :invalid
+         end
+       end
+     end
+
+ is that really it now??!

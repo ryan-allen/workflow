@@ -1,6 +1,14 @@
 = Workflow
 
-=== New Mailing List!
+=== THIS COPY IS UNMAINTAINED: LINK TO ACTIVE FORK!
+
+Hello! This copy of Workflow isn't currently being maintained. The active fork is located here:
+
+  http://github.com/geekq/workflow/tree/master
+
+Cheers!
+
+=== MAILING LIST!
 
 Hi! We've now got a mailing list to talk about Workflow, and that's good! Come visit and post your problems or ideas or anything!!!
 

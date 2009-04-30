@@ -111,7 +111,7 @@ module Workflow
 
   class Specification
 
-    attr_accessor :states, :meta, :on_transition
+    attr_accessor :states, :meta, :on_transition, :before_transition, :after_transition
 
     def initialize(meta = {}, &specification)
       @states = []
@@ -120,7 +120,7 @@ module Workflow
     end
 
     def to_instance(reconstitute_at = nil)
-      Instance.new(states, @on_transition, @meta, reconstitute_at)
+      Instance.new(states, @before_transition, @on_transition, @after_transition, @meta, reconstitute_at)
     end
 
     def blat(meta = {}, &specification)
@@ -138,6 +138,14 @@ module Workflow
 
     def on_transition(&proc)
       @on_transition = proc
+    end
+
+    def before_transition(&proc)
+      @before_transition = proc
+    end
+
+    def after_transition(&proc)
+      @after_transition = proc
     end
 
     def event(name, args = {}, &action)
@@ -169,11 +177,12 @@ module Workflow
       end
     end
 
-    attr_accessor :states, :meta, :current_state, :on_transition, :context
+    attr_accessor :states, :meta, :current_state, :on_transition, :before_transition, :after_transition, :context
 
-    def initialize(states, on_transition, meta = {}, reconstitute_at = nil)
+    def initialize(states, before_transition, on_transition, after_transition, meta = {}, reconstitute_at = nil)
       Workflow.logger.debug "Creating workflow instance"
-      @states, @on_transition, @meta = states, on_transition, meta
+      @states, @meta = states, on_transition, meta
+      @before_transition, @on_transition, @after_transition = before_transition, on_transition, after_transition
       @context = self
       if reconstitute_at.nil?
         transition(nil, states.first, nil)
@@ -284,8 +293,10 @@ module Workflow
           false
         end
       else
-        run_on_transition(current_state, states(event.transitions_to), name, *args)
+        # run_on_transition(current_state, states(event.transitions_to), name, *args)
+        run_before_transition(current_state, states(event.transitions_to), name, *args)
         transition(current_state, states(event.transitions_to), name, *args)
+        run_after_transition(current_state, states(event.transitions_to), name, *args)
         return_value
       end
     end
@@ -318,8 +329,16 @@ module Workflow
       run_on_entry(to, from, name, *args)
     end
 
+    def run_before_transition(from, to, event, *args)
+      context.instance_exec(from.name, to.name, event, *args, &before_transition) if before_transition
+    end
+
     def run_on_transition(from, to, event, *args)
       context.instance_exec(from.name, to.name, event, *args, &on_transition) if on_transition
+    end
+
+    def run_after_transition(from, to, event, *args)
+      context.instance_exec(from.name, to.name, event, *args, &after_transition) if after_transition
     end
 
     def run_action(action, *args)

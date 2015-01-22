@@ -79,7 +79,7 @@ Now lets say another business rule is that we need to keep track of who is curre
 By using Ruby blocks we've now introduced extra code to be fired when an event is called. The block parameters are treated as method arguments on the event, so, given we have a reference to the reviewer, the event call becomes:
 
   # we gots a reviewer
-  workflow.reivew(reviewer)
+  workflow.review(reviewer)
 
 OK, so how do we store the reviewer? What is the scope inside that block? Ah, we'll get to that in a bit. An instance of a workflow isn't as useful as a workflow bound to an instance of another class. We'll introduce you to plain old Class integration and ActiveRecord integration later in this document.
 
